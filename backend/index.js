@@ -5,6 +5,13 @@ const cors = require('cors');
 const swaggerUi = require('swagger-ui-express');
 const swaggerJsdoc = require('swagger-jsdoc');
 
+const Redis = require('ioredis');
+const redis = new Redis({
+  host: 'redis', // este es el nombre del servicio del contenedor
+  port: 6379
+});
+
+
 const app = express();
 const port = 3000;
 
@@ -80,21 +87,43 @@ setTimeout(() => {
  */
 
 
-app.post('/login', (req, res) => {
+app.post('/login', async (req, res) => {
   const { username, password } = req.body;
-  connection.query(
-    'SELECT * FROM usuarios WHERE username = ? AND password = ?',
-    [username, password],
-    (err, results) => {
-      if (err) return res.status(500).json({ error: err.message });
-      if (results.length > 0) {
-        res.json({ success: true, message: 'Login correcto' });
+  const redisKey = `user:${username}`;
+
+  try {
+    // Revisa si existe en Redis
+    const cachedUser = await redis.get(redisKey);
+
+    if (cachedUser) {
+      const user = JSON.parse(cachedUser);
+      if (user.password === password) {
+        return res.json({ success: true, message: 'Login correcto (desde Redis)' });
       } else {
-        res.status(401).json({ success: false, message: 'Credenciales inválidas' });
+        return res.status(401).json({ success: false, message: 'Credenciales inválidas (Redis)' });
       }
     }
-  );
+
+    // Si no está en Redis, consultar MySQL
+    connection.query(
+      'SELECT * FROM usuarios WHERE username = ? AND password = ?',
+      [username, password],
+      async (err, results) => {
+        if (err) return res.status(500).json({ error: err.message });
+        if (results.length > 0) {
+          // Guarda en Redis por 10 minutos (600 segundos)
+          await redis.set(redisKey, JSON.stringify(results[0]), 'EX', 600);
+          res.json({ success: true, message: 'Login correcto (desde MySQL)' });
+        } else {
+          res.status(401).json({ success: false, message: 'Credenciales inválidas' });
+        }
+      }
+    );
+  } catch (error) {
+    res.status(500).json({ error: 'Error del servidor con Redis/MySQL' });
+  }
 });
+
 
 app.get('/', (req, res) => {
   res.send('👋 Bienvenido a la API de usuarios');
