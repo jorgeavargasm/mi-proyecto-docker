@@ -153,4 +153,17 @@ app.use('/swagger', swaggerUi.serve, swaggerUi.setup(swaggerDocs));
 
 app.listen(port, () => {
   console.log(`🚀 API escuchando en http://localhost:${port}`);
+
+  /*redis.on('connect', () => {
+    console.log('🔌 Conectando a Redis...');
+  });*/
+  
+  redis.on('ready', () => {
+    console.log('✅ Conectado a Redis');
+  });
+  
+  redis.on('error', (err) => {
+    console.error('❌ Error en la conexión con Redis:', err);
+  });
+  
 });
