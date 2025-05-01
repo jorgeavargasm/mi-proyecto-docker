@@ -2,6 +2,9 @@ const express = require('express');
 const mysql = require('mysql2');
 const cors = require('cors');
 
+const swaggerUi = require('swagger-ui-express');
+const swaggerJsdoc = require('swagger-jsdoc');
+
 const app = express();
 const port = 3000;
 
@@ -50,6 +53,33 @@ setTimeout(() => {
 
 }, 3000); // Esperar 5 segundos
 
+/**
+ * @swagger
+ * /login:
+ *   post:
+ *     summary: Iniciar sesión de usuario
+ *     tags: [Usuarios]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               username:
+ *                 type: string
+ *               password:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Login correcto
+ *       401:
+ *         description: Credenciales inválidas
+ *       500:
+ *         description: Error del servidor
+ */
+
+
 app.post('/login', (req, res) => {
   const { username, password } = req.body;
   connection.query(
@@ -65,6 +95,32 @@ app.post('/login', (req, res) => {
     }
   );
 });
+
+app.get('/', (req, res) => {
+  res.send('👋 Bienvenido a la API de usuarios');
+});
+
+// Opciones de configuración de Swagger
+const swaggerOptions = {
+  definition: {
+    openapi: '3.0.0',
+    info: {
+      title: 'API de Usuarios',
+      version: '1.0.0',
+      description: 'Documentación de la API de login de usuarios'
+    },
+    servers: [
+      {
+        url: 'http://localhost:3000',
+      },
+    ],
+  },
+  apis: ['./index.js'], // O el archivo donde están tus rutas
+};
+
+const swaggerDocs = swaggerJsdoc(swaggerOptions);
+
+app.use('/swagger', swaggerUi.serve, swaggerUi.setup(swaggerDocs));
 
 app.listen(port, () => {
   console.log(`🚀 API escuchando en http://localhost:${port}`);
